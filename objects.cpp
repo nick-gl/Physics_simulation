@@ -1,8 +1,11 @@
+// I neeed to commit this more and also my keyboard sucks f this keyboard
+
 #ifndef objects.cpp
 #define objects.cpp
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <cmath>
+
 int const density = 5;
 
 
