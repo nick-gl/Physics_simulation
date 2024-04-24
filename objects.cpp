@@ -55,15 +55,27 @@ public:
 
     }
     sf::CiraleShape getradius() const {
-         return shape;
+         return radius;
     }
     void set_manual_velo(sf::Vector2f velo) {
         velocity = velo;
 
     }
-    void handle_collosion(Circle circle) {
+    /* I'll ask dunc for help
+    
+    void handle_elastic_collosion(Circle circle) {
+     // dis sucks
+        float mass = pi*density*radius*radius;
+
+        float other_mass = pi*density*circle.getradius()*circle.getradius();
+        // use kenetic energy to find velocity I hate physics
+        
+    }
+    void handle_inelastic_collsion {
 
     }
+    */
+
     void setacceleration(sf::Vector2f force) {
     // wanted to create the illusion of mass so I added density
         acceleration.y = force.y/
@@ -72,6 +84,7 @@ public:
         acceleration.x = force.x/
         (density*pi*(radius*radius);
     }
+
     void setup(sf::RenderWindow& window) const {
      window.draw(shape);
     }
