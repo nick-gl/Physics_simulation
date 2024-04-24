@@ -14,6 +14,7 @@ float const pi = 3.14;
 
 class Circle
 { private:
+	sf::Vector2f force(0,0);
 	sf::Vector2f aceleration;
 	sf::CircleShape shape;
 	sf::Vector2f position;
@@ -28,33 +29,39 @@ public:
     shape.setPosition(position);
     }
     void update(float deltaTime) {
-        sf::Vector2f final_velocity(0,0)
-         final_velocity.y = velocity.y + acceleration.y*deltaTime;
+	 acceleration.y = force.y / (density * pi * (radius * radius));
+        acceleration.x = force.x / (density * pi * (radius * radius));
 
-         final_velocity.x  = velocity.x +
-        accleration.x*deltaTime;
-        // distance formula
-        shape.setposition(postiion.x+.5*(velocity.x+final_velocity.x)*deltaTime,position.y+
-        .5*(velocity.y+final_velocity.y)*deltaTime);
+        sf::Vector2f final_velocity(0, 0);
+        final_velocity.y = velocity.y + acceleration.y * deltaTime;
+        final_velocity.x = velocity.x + acceleration.x * deltaTime;
+
+        // Update position using the distance formula
+        shape.setPosition(position.x + 0.5f * (velocity.x + final_velocity.x) * deltaTime,
+                           position.y + 0.5f * (velocity.y + final_velocity.y) * deltaTime);
 
         set_manual_velo(final_velocity);
     }
     // Imma do this later
-    bool checkcollosions(Circle circle) {
+    bool checkcollosions(const Circle& circle) {
         sf::Vector2f other_position = circle.getPosition();
 
         float dist = (position.x-other_position.x)(position.x-other_position.x) + (position.y-other_position.y)(position.y-other_position.y);
         dist = std::sqrt(dist);
         if dist > radius + circle.getradius()
-           { return true}
+           { return true;}
         else
-            {return false}
+            {return false;}
     }
-    sf::vector2f getPosition() const {
+    sf::Vector2f getPosition() const {
         return position;
 
     }
-    sf::CiraleShape getradius() const {
+    void setposition(sf::Vector2f new_position) {
+	position = new_position;
+	shape.setposition(position);
+    }
+    float getradius() const {
          return radius;
     }
     void set_manual_velo(sf::Vector2f velo) {
@@ -76,15 +83,11 @@ public:
     }
     */
 
-    void setacceleration(sf::Vector2f force) {
-    // wanted to create the illusion of mass so I added density
-        acceleration.y = force.y/
-        (density*pi*(radius*radius);
-
-        acceleration.x = force.x/
-        (density*pi*(radius*radius);
-    }
-
+    void Push_constant_force(sf::Vector2f FORCE) {
+        force.x += FORCE.x;
+	force.y += FORCE.y;
+    }    
+   
     void setup(sf::RenderWindow& window) const {
      window.draw(shape);
     }
