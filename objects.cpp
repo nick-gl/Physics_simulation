@@ -3,27 +3,49 @@
 //breaks when you full screen it cause duh
 #ifndef circle_H
 #define circle_H
+#include <thread>    // For threading
+#include <mutex>     // For mutexes
+#include <vector>
+#include <unordered_set>
 #include <SFML/Graphics.hpp>
+#include <SFML/System/Clock.hpp>
 #include <iostream>
 #include <cmath>
-
 int const density = 5;
-
+using vecf = sf::Vector2f;
 
 float const pi = 3.14;
 
-
+float dotProduct(const vecf& vec1, const vecf& vec2) {
+    return vec1.x * vec2.x + vec1.y * vec2.y;
+}
+vecf subtract(const vecf& vec1, const vecf& vec2) {
+    return vecf(vec1.x-vec2.x,vec1.y-vec2.y);
+}
+vecf normalize(const vecf& vec) {
+    float length = std::sqrt(vec.x * vec.x + vec.y * vec.y);
+    if (length != 0.0f) {
+        return vecf(vec.x / length, vec.y / length);
+    }
+    return vecf(0.0f, 0.0f); // Return a zero vector if the length is zero
+}
+vecf add(const vecf& vec1, const vecf& vec2)  {
+    return vecf(vec1.x+vec2.x,vec1.y+vec2.y);
+}
+vecf scale(const vecf& vec1, float scalar) {
+    return vecf(vec1.x*scalar, vec1.y*scalar);
+}
 class Circle
 { private:
-	sf::Vector2f force;
-    sf::Vector2f velocity;
-	sf::Vector2f acceleration;
+	vecf force;
+    vecf velocity;
+	vecf acceleration;
     sf::CircleShape shape;
-	sf::Vector2f position;
+	vecf position;
 
-    const float radius;
+    float radius;
 public:
- Circle(float radius, sf::Vector2f velo, sf::Vector2f position, sf::Color color):
+ Circle(float radius, vecf velo, vecf position, sf::Color color):
     force(0,0),
     acceleration(0,0),
     velocity(velo), position(position),
@@ -34,25 +56,20 @@ public:
     }
     void update(float deltaTime,sf::RenderWindow& window) {
         position = shape.getPosition();
-
+        acceleration=force;
      if (check_wall(window)) {
-         velocity.x *=-.8;
-         force.x=0;
+         velocity.x = -velocity.x;
          acceleration.x = 0;
      }
-     else {
-         acceleration.y = force.y / (density * pi * (radius * radius));
-         acceleration.x = force.x / (density * pi * (radius * radius));
-         }
+
         if (check_floor_and_ceiling(window)) {
-            velocity.y *=-.8; velocity.x *= .90;
+            velocity.y = -velocity.y;
+            // velocity.x *=.9* velocity.x;
             acceleration.y = 0;
         }
-        else {
-	 acceleration.y = force.y / (density * pi * (radius * radius));
-        acceleration.x = force.x / (density * pi * (radius * radius));
-        }
-        sf::Vector2f final_velocity(0, 0);
+
+
+        vecf final_velocity(0, 0);
         final_velocity.y = velocity.y + acceleration.y * deltaTime;
         final_velocity.x = velocity.x + acceleration.x * deltaTime;
 
@@ -62,23 +79,23 @@ public:
         set_manual_velo(final_velocity);
     }
     // Imma do this later
-    bool checkcollosions(const Circle& circle) {
-        sf::Vector2f other_position = circle.getPosition();
+    bool checkcollosions( Circle& circle) {
+        vecf other_position = circle.getPosition();
 
         float dist = (position.x - other_position.x) * (position.x - other_position.x) +
              (position.y - other_position.y) * (position.y - other_position.y);
         dist = std::sqrt(dist);
-        if (dist < radius + circle.getradius())
+        if (dist > radius + circle.getradius())
            { return false;}
         else
             {return true;}
     }
     bool check_floor_and_ceiling(sf::RenderWindow& window) {
 
-        unsigned int max = window.getSize().y-50;
+        unsigned int max = window.getSize().y-70;
 
         if (max-shape.getPosition().y<radius && velocity.y>0) {
-            shape.setPosition(shape.getPosition().x,max-radius-50);
+            shape.setPosition(shape.getPosition().x,max-radius);
         return true;
 
         }
@@ -104,81 +121,135 @@ public:
      }
 
 
-     else if (shape.getPosition().x-radius<0 && velocity.x<0)
+     else if (shape.getPosition().x-radius<-60 && velocity.x<0)
      {
          return true;
      }
      return false;
  }
-    sf::Vector2f getPosition() const {
+    vecf getPosition() const {
         return position;
 
     }
-    void setposition(sf::Vector2f new_position) {
+    void setposition(vecf new_position) {
 	position = new_position;
 	shape.setPosition(position);
     }
     float getradius() const {
          return radius;
     }
-    void set_manual_velo(sf::Vector2f velo) {
+    void set_manual_velo(vecf velo) {
         velocity = velo;
 
     }
-    /* I'll ask dunc for help
+void handle_collision(Circle& circle) {
+    // Increment the collision count
 
-    void handle_elastic_collosion(Circle circle) {
-     // dis sucks
-        float mass = pi*density*radius*radius;
+    // Calculate the direction vector between the two circles
+    vecf direction = subtract(circle.getPosition(), getPosition());
+    float direction_length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
 
-        float other_mass = pi*density*circle.getradius()*circle.getradius();
-        // use kenetic energy to find velocity I hate physics
-
+    // Check if there's a collision
+    if (direction_length == 0.0f || direction_length > radius + circle.getradius()) {
+        return; // No collision
     }
-    void handle_inelastic_collsion {
 
-    }
-    */
+    // Normalize the direction vector
+    direction = normalize(direction);
 
-    void Push_constant_force(sf::Vector2f FORCE) {
+    // Calculate the correction factor to adjust positions
+    float corr = (radius + circle.getradius() - direction_length) / 2.0f;
+
+    // Update positions to prevent overlap
+    setposition(scale(add(getPosition(), scale(direction, -corr)),1.001));
+    circle.setposition(scale(add(circle.getPosition(), scale(direction, corr)),1.001));
+
+    // Calculate the dot products of velocities along the direction vector
+    float v1 = dotProduct(direction, velocity);
+    float v2 = dotProduct(direction, circle.getVelocity());
+
+    // Assuming the radius represents mass (adjust if you have separate mass variables)
+    float m1 = radius;
+    float m2 = circle.getradius();
+
+    // Coefficient of restitution (elasticity of the collision)
+    float restitution = 1.0f;
+
+    // Calculate the new velocities after collision using the momentum and restitution
+    float newV1 = (m1 * v1 + m2 * v2 - m2 * (v1 - v2) * restitution) / (m1 + m2);
+    float newV2 = (m1 * v1 + m2 * v2 - m1 * (v2 - v1) * restitution) / (m1 + m2);
+
+    // Update the velocities of both circles
+    velocity = add(scale(direction, newV1 - v1), velocity);
+    circle.set_manual_velo(add(scale(direction, newV2 - v2), circle.getVelocity()));
+
+    // Debugging output every 100 collisions
+}
+
+    void Push_constant_force(vecf FORCE) {
         force += FORCE;
 
     }
-
     void setup(sf::RenderWindow& window) const {
      window.draw(shape);
     }
+    vecf getVelocity() const {
+    return velocity;
+    }
+    void setcolor() {
+    shape.setFillColor(sf::Color::Yellow);
+    }
 
 };
-#endif
-void update_circle( Circle& circle,sf::RenderWindow& window)  {
-    circle.update(.1,window);
-    circle.setup(window);
-}
-sf::Vector2f mouse_movement(sf::Vector2f position) {
 
-return sf::Vector2f (0,0);
+void mouse_movement(vecf other_position,std::vector<Circle>& circles){
+   Circle* pick = &circles[0];
+   vecf position= circles[0].getPosition();
+    float dist = (position.x - other_position.x) * (position.x - other_position.x) +
+               (position.y - other_position.y) * (position.y - other_position.y);
+
+    for (auto& circle: circles) {
+        position = circle.getPosition();
+        float other_dist = (position.x - other_position.x) * (position.x - other_position.x) +
+               (position.y - other_position.y) * (position.y - other_position.y);
+        if ( other_dist < dist) {
+        pick = &circle;
+        dist = other_dist;
+                                }
+
+
+                    }
+
+    pick->set_manual_velo(vecf(pick->getVelocity().x*1.001,pick->getVelocity().y*1.001));
+    pick->setcolor();
 }
 
-// g++ objects.cpp -o sfml-app -lsfml-graphics -lsfml-window -lsfml-system
 void createCircles(std::vector<Circle>& circles) {
-    circles.emplace_back(50, sf::Vector2f(0, 0), sf::Vector2f(100, 100), sf::Color::Blue);
-    circles.emplace_back(50, sf::Vector2f(0, 0), sf::Vector2f(100, 200), sf::Color::White);
-    circles.emplace_back(50, sf::Vector2f(0, 0), sf::Vector2f(100, 100), sf::Color::Blue);
-    circles.emplace_back(50, sf::Vector2f(0, 0), sf::Vector2f(100, 100), sf::Color::Blue);
-    circles.emplace_back(50, sf::Vector2f(0, 0), sf::Vector2f(150, 100), sf::Color::Red);
+    int feels{0};
+   if (feels==0) {
+    // Define a common velocity for all circles
+    sf::Vector2f commonVelocity(1000.0f, 0.0f); // You can adjust this speed as needed
 
-    circles[0].Push_constant_force(sf::Vector2f(50, 150));
-    circles[1].Push_constant_force(sf::Vector2f(50, 999));
-    circles[2].Push_constant_force(sf::Vector2f(100, 112));
-    circles[3].Push_constant_force(sf::Vector2f(50, 180));
-    circles[4].Push_constant_force(sf::Vector2f(50, 190));
+    // Create 5 circles with different positions but the same velocity
+    for (int i = 0; i < 5000; ++i) {
+        // Calculate a different starting position for each circle
+        sf::Vector2f position(i * .01* 200.0f, i *.01* 100.0f); // Adjust spacing as needed
+
+        // Create the circle with the same velocity but different position
+        circles.emplace_back(10.0f, commonVelocity, position, sf::Color::Blue);
+    }
+}
+   else {
+
+    std::cout<<"yo"<<"/n";
+     circles.emplace_back(50, vecf(750, 0), vecf(0, 500), sf::Color::White);
+    circles.emplace_back(50, vecf(0, 750), vecf(500, 0), sf::Color::Red);
+    }
 }
 
-void updateCircles(std::vector<Circle>& circles, sf::RenderWindow& window) {
-    for (auto& circle : circles) {
-        update_circle(circle, window);
-        circle.setup(window);
+void updateCirclesPhysics(std::vector<Circle>& circles, int start, int end, float deltaTime, sf::RenderWindow& window) {
+    for (int i = start; i < end; ++i) {
+        circles[i].update(deltaTime, window);
     }
 }
 
@@ -188,6 +259,10 @@ int main() {
 
     createCircles(circles);
 
+    sf::Clock clock;  // Create a clock to measure time
+
+
+    // Main loop
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -195,10 +270,52 @@ int main() {
                 window.close();
         }
 
-        window.clear();
-        updateCircles(circles, window);
+        float deltaTime = clock.restart().asSeconds();  // Calculate delta time
+
+        // Handle mouse input
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+            sf::Vector2i mousePosition = sf::Mouse::getPosition(); 
+            sf::Vector2f mousePositionFloat = static_cast<sf::Vector2f>(mousePosition);
+            mouse_movement(mousePositionFloat, circles);
+        }
+
+        // Handle collisions (this can be multithreaded too, but requires mutexes)
+        std::unordered_set<int> collided_circle;
+        for (int i = 0; i < circles.size() - 1; ++i) {
+            if (collided_circle.find(i) != collided_circle.end()) {
+                continue;  // Skip this circle if it has already collided
+            }
+            for (int j = i + 1; j < circles.size(); ++j) {
+                if (circles[i].checkcollosions(circles[j])) {
+                    circles[i].handle_collision(circles[j]);
+                    collided_circle.insert(j);
+                    break;
+                }
+            }
+        }
+
+        collided_circle.clear();
+
+        // Divide the circles for physics updates among threads
+        int half = circles.size() / 2;
+        std::cout<<deltaTime<<"\n";
+
+        std::thread t1(updateCirclesPhysics, std::ref(circles), 0, half, deltaTime, std::ref(window));
+        std::thread t2(updateCirclesPhysics, std::ref(circles), half, circles.size(), deltaTime, std::ref(window));
+
+        // Wait for both threads to finish
+        t1.join();
+         t2.join();
+        // Render circles in the main thread (required by SFML)
+        for (auto& circle : circles) {
+            circle.setup(window);
+        }
+
         window.display();
+        window.clear();
+              std::cout<<deltaTime<<"\n";
     }
 
     return 0;
 }
+// g++ objects.cpp -o sfml-app -lsfml-graphics -lsfml-window -lsfml-system
