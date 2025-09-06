@@ -279,7 +279,7 @@ int main() {
             mouse_movement(mousePositionFloat, circles);
         }
 
-        // Handle collisions (this can be multithreaded too, but requires mutexes)
+        // Handle collisions 
         std::unordered_set<int> collided_circle;
         for (int i = 0; i < circles.size() - 1; ++i) {
             if (collided_circle.find(i) != collided_circle.end()) {
