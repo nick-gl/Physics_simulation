@@ -4,7 +4,6 @@
 #ifndef circle_H
 #define circle_H
 #include <thread>    // For threading
-#include <mutex>     // For mutexes
 #include <vector>
 #include <unordered_set>
 #include <SFML/Graphics.hpp>
